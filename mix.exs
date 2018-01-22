@@ -26,11 +26,11 @@ defmodule Geocoder.Mixfile do
   end
 
   defp deps do
-    [{:httpoison, "~> 0.8"},
+    [{:httpoison, "~> 1.0"},
      {:poison, "< 4.0.0"},
      {:towel, "~> 0.2"},
      {:poolboy, "~> 1.5"},
-     {:geohash, "~> 0.1"},
+     {:geohash, "~> 1.1"},
      {:ex_doc, ">= 0.0.0", only: :dev},
      {:inch_ex, ">= 0.0.0", only: :docs},
      {:excoveralls, "~> 0.6.3", only: :test}]
