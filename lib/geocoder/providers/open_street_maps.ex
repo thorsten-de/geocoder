@@ -4,9 +4,9 @@ defmodule Geocoder.Providers.OpenStreetMaps do
 
   # url="https://nominatim.openstreetmap.org/reverse?format=json&accept-language={{ language }}&lat={{ latitude }}&lon={{ longitude }}&zoom={{ zoom }}&addressdetails=1"
   @endpoint "https://nominatim.openstreetmap.org/"
-  @endpath_reverse  "/reverse"
-  @endpath_search   "/search"
-  @defaults [format: "json", "accept-language": "en", "addressdetails": 1]
+  @endpath_reverse "/reverse"
+  @endpath_search "/search"
+  @defaults [format: "json", "accept-language": "en", addressdetails: 1]
 
   def geocode(opts) do
     request(@endpath_search, extract_opts(opts))
@@ -15,7 +15,7 @@ defmodule Geocoder.Providers.OpenStreetMaps do
 
   def geocode_list(opts) do
     request_all(@endpath_search, extract_opts(opts))
-    |> fmap(fn(r) -> Enum.map(r, &parse_geocode/1) end)
+    |> fmap(fn r -> Enum.map(r, &parse_geocode/1) end)
   end
 
   def reverse_geocode(opts) do
@@ -25,23 +25,41 @@ defmodule Geocoder.Providers.OpenStreetMaps do
 
   def reverse_geocode_list(opts) do
     request_all(@endpath_search, extract_opts(opts))
-    |> fmap(fn(r) -> Enum.map(r, &parse_reverse_geocode/1) end)
+    |> fmap(fn r -> Enum.map(r, &parse_reverse_geocode/1) end)
   end
 
   defp extract_opts(opts) do
     @defaults
-    |> Keyword.merge(opts)  
+    |> Keyword.merge(opts)
     |> Keyword.update!(:"accept-language", fn default -> opts[:language] || default end)
-    |> Keyword.put(:q, case opts |> Keyword.take([:address, :latlng]) |> Keyword.values do
-                         [{lat, lon}] -> "#{lat},#{lon}"
-                         [query] -> query
-                         _ -> nil
-                       end)
-    |> Keyword.take([:q, :key, :address, :components, :bounds, :region,
-                     :latlon, :lat, :lon, :placeid, :result_type, :location_type] ++ Keyword.keys(@defaults))
+    |> Keyword.put(
+      :q,
+      case opts |> Keyword.take([:address, :latlng]) |> Keyword.values() do
+        [{lat, lon}] -> "#{lat},#{lon}"
+        [query] -> query
+        _ -> nil
+      end
+    )
+    |> Keyword.take(
+      [
+        :q,
+        :key,
+        :address,
+        :components,
+        :bounds,
+        :region,
+        :latlon,
+        :lat,
+        :lon,
+        :placeid,
+        :result_type,
+        :location_type
+      ] ++ Keyword.keys(@defaults)
+    )
   end
 
   defp parse_geocode([]), do: :error
+
   defp parse_geocode(response) do
     coords = geocode_coords(response)
     bounds = geocode_bounds(response)
@@ -50,6 +68,7 @@ defmodule Geocoder.Providers.OpenStreetMaps do
   end
 
   defp parse_reverse_geocode([]), do: :error
+
   defp parse_reverse_geocode(response) do
     coords = geocode_coords(response)
     bounds = geocode_bounds(response)
@@ -66,6 +85,7 @@ defmodule Geocoder.Providers.OpenStreetMaps do
     [north, south, west, east] = bbox |> Enum.map(&String.to_float(&1))
     %Geocoder.Bounds{top: north, right: east, bottom: south, left: west}
   end
+
   defp geocode_bounds(_), do: %Geocoder.Bounds{}
 
   # %{"address" =>
@@ -88,21 +108,30 @@ defmodule Geocoder.Providers.OpenStreetMaps do
     "postcode" => :postal_code,
     "country" => :country
   }
-  defp geocode_location(%{"address" => address, "display_name" => formatted_address, "osm_type" => type}) do
+  defp geocode_location(%{
+         "address" => address,
+         "display_name" => formatted_address,
+         "osm_type" => type
+       }) do
     reduce = fn {type, name}, location ->
       Map.put(location, Map.get(@map, type), name)
     end
 
-    location = %Geocoder.Location{country_code: address["country_code"], formatted_address: formatted_address}
+    location = %Geocoder.Location{
+      country_code: address["country_code"],
+      formatted_address: formatted_address
+    }
 
     address
-#    |> Enum.filter_map(type, map)
+    #    |> Enum.filter_map(type, map)
     |> Enum.reduce(location, reduce)
   end
 
   defp request_all(path, params) do
     httpoison_options = Application.get_env(:geocoder, Geocoder.Worker)[:httpoison_options] || []
-    case get(path, [], Keyword.merge(httpoison_options, params: Enum.into(params, %{}))) |> fmap(&Map.get(&1, :body)) do
+
+    case get(path, [], Keyword.merge(httpoison_options, params: Enum.into(params, %{})))
+         |> fmap(&Map.get(&1, :body)) do
       {:ok, list} when is_list(list) -> {:ok, list}
       {:ok, single} -> {:ok, [single]}
       other -> other
@@ -123,6 +152,6 @@ defmodule Geocoder.Providers.OpenStreetMaps do
   end
 
   defp process_response_body(body) do
-    body |> Poison.decode!
+    body |> Jason.decode!()
   end
 end

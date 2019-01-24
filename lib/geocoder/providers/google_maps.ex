@@ -116,6 +116,6 @@ defmodule Geocoder.Providers.GoogleMaps do
   end
 
   defp process_response_body(body) do
-    body |> Poison.decode!
+    body |> Jason.decode!
   end
 end
