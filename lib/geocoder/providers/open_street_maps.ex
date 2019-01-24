@@ -148,8 +148,10 @@ defmodule Geocoder.Providers.OpenStreetMaps do
   end
 
   defp process_url(url) do
-    @endpoint <> url
+    (Application.get_env(:geocoder, Geocoder.Worker)[:endpoint] || @endpoint) <> url
   end
+
+  defp process_response_body(""), do: :error
 
   defp process_response_body(body) do
     body |> Jason.decode!()
